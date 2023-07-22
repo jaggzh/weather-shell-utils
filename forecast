@@ -3,16 +3,41 @@ ourdir="$(dirname "$(readlink -f "$0")")"
 ourname="${ourdir##*/}"
 bin_owm_functions="$ourdir/owm-functions"
 bin_forecast_py="$ourdir/forecast.py"
+local=
 
-if [[ $# -eq 0 ]]; then
-	echo "sourcing $bin_owm_functions" >&2
+owm_usage () {
+	echo "Weather forecast using openweathermap api"
+	echo "(And OpenStreetMap if you look up a city -> coords)"
+	echo
+	echo "Usage: forecast [-l] [location_search]"
+	echo " -l  The location search will be done, and stored"
+	echo "     as your default coordinates."
+	echo "     Once stored, forecast can be run without coords and"
+	echo "     will use that as the default location."
+}
+
+for arg in "$@"; do
+	if [[ $arg = -l ]]; then
+		local=1
+	elif [[ $arg = -h ]]; then
+		owm_usage
+		exit
+	elif [[ -n $opt_search ]]; then
+		echo "Too many options. We accept a city to search for. See -h" >&2
+		exit 1
+	else
+		opt_search=$arg
+	fi
+done
+
+# $ cat openweathermap-coord-local.txt
+# [{"name":"Somewhere","lat":34.595,"lon":-118.47,"country":"US","state":"California"}]
+
+if [[ -z $opt_search ]]; then
+	echo "Sourcing $bin_owm_functions" >&2
 	. "$bin_owm_functions"
-elif [[ $# -gt 1 ]]; then
-	echo "Too many options. We accept a city to search for." >&2
-	exit 1
-elif [[ $# -eq 1 ]]; then
-	search=$1
-	latlon=$(city-to-coord "$search")
+else
+	latlon=$(city-to-coord "$opt_search")
 	cityresult=$?
 	echo "city-to-coord result: $cityresult" >&2
 	# printf 'Lat lon: %s\n' "$latlon" >&2
@@ -26,11 +51,20 @@ elif [[ $# -eq 1 ]]; then
 	fi
 	echo "Using coordinates: $lat $lon" >&2
 	if [[ $cityresult -eq 0 ]]; then # Not cached, so expire
-		echo "city-to-coord location ($search) not cached." >&2
+		echo "city-to-coord location ($opt_search) not cached." >&2
 		echo "  Expiring owm cache" >&2
 		export owm_expire=1          #  owm's cache as well
 	fi
 	. "$bin_owm_functions" "$lat" "$lon"
+	if [[ -n $local ]]; then
+		# 'owm_coord_local_fn' filename variable now loaded
+		# [{"name":"Somewhere","lat":34.595,"lon":-118.47,"country":"US","state":"California"}]
+		echo "Updating local coord file:" >&2
+		echo "  $owm_coord_local_fn" >&2
+		echo "Contents:" >&2
+		printf '[{"lat":%f,"lon":%f}]\n' "$lat" "$lon"
+		printf '[{"lat":%f,"lon":%f}]\n' "$lat" "$lon" > "$owm_coord_local_fn"
+	fi
 fi
 
 export owm_cache_forecast_fn

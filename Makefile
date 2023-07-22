@@ -1,6 +1,7 @@
 vi:
 	vim \
 		Makefile \
+		README.md \
 		forecast \
 		forecast.py \
 		owm-functions \

@@ -1,5 +1,6 @@
 #!/bin/bash
 . owm.env
+owm_coord_local_fn="$owm_confdir"/openweathermap-coord-local.txt
 owm_coord_local=$(cat "$owm_confdir"/openweathermap-coord-local.txt)
 owm_key=$(cat "$owm_confdir"/openweathermap-api-key.txt)
 owm_cache_forecast_fn="$owm_cachedir/fc-local.json"
@@ -22,7 +23,7 @@ owm_usage () {
 }
 
 for arg in "$@"; do
-	echo "Processing arg: $arg" >&2
+	# echo "Processing arg: $arg" >&2
 	if [[ $arg = -f ]]; then
 		owm_force=1
 	elif [[ $arg = -d ]]; then
@@ -66,6 +67,8 @@ owm_update () {
 	local json_pretty="${owm_cache_forecast_fn%.json}.pretty.json"
 	local retrieve=
 	if [[ -n $owm_force ]]; then
+		retrieve=1
+	elif [[ ! -f $owm_cache_forecast_fn ]]; then
 		retrieve=1
 	elif find "$owm_cache_forecast_fn" -mmin +"$owm_expiretime" &>/dev/null; then
 		retrieve=1
