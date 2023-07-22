@@ -1,0 +1,48 @@
+#!/bin/bash
+# Do an openstreetmap search of a city/state/whatever
+#   to find the location/coord data
+rc=1
+cachedir="/tmp/geocoords"
+[[ -d $cachedir ]] || mkdir -p "$cachedir"
+
+if [[ $# -lt 1 ]]; then
+	echo "Usage: city-to-coord 'location search'"
+	exit
+fi
+loc="$1"
+loc_safe=$(echo "$loc" | tr ' /' '__' | tr 'A-Z' 'a-z')
+loc_cache_fn="$cachedir/$loc_safe"
+# echo "         loc: $loc" >&2
+# echo "    loc_safe: $loc_safe" >&2
+# echo "loc_cache_fn: $loc_cache_fn" >&2
+
+# echo find "$loc_cache_fn" -mtime +2
+if find "$loc_cache_fn" -mtime +2 &>/dev/null; then
+	echo "Location already in cache: $loc_cache_fn" >&2
+	rc=255
+else
+	rc=0
+	user_agent="Personal Use Script (your-email@example.com)"
+	loc_url_param=$(perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$loc")
+	url="https://nominatim.openstreetmap.org/search?q=$loc_url_param&limit=8&format=json"
+	echo "URL: $url" >&2
+	curl -s -A "$user_agent" "$url" > "$loc_cache_fn"
+	echo "Location stored: $loc_cache_fn" >&2
+fi
+export loc_cache_fn
+
+cnt=$(jq length < "$loc_cache_fn")
+if [[ $cnt -lt 1 ]]; then
+	echo "No results found" >&2
+	exit 1
+elif [[ $cnt -gt 1 ]]; then
+	echo >&2
+	echo "$cnt results found. Outputting the first." >&2
+	echo "Search results:" >&2
+	#jq -r '"  " + .[].display_name' < "$loc_cache_fn" >&2
+	jq -r 'to_entries[] | "  \(.key+1). \(.value.display_name)"' < "$loc_cache_fn" >&2
+	echo >&2
+fi
+jq -r '[.[0].lat, .[0].lon] | join(" ")' < "$loc_cache_fn"
+exit "$rc"
+

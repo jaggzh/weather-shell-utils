@@ -1,0 +1,96 @@
+#!/bin/bash
+. owm.env
+owm_coord_local=$(cat "$owm_confdir"/openweathermap-coord-local.txt)
+owm_key=$(cat "$owm_confdir"/openweathermap-api-key.txt)
+owm_cache_forecast_fn="$owm_cachedir/fc-local.json"
+owm_userreq=
+owm_expiretime=$((60*8))
+owm_expiretime=$((60))
+owm_force=
+owm_lat=
+owm_lon=
+owm_run_true=1
+owm_help=
+owm_debug=
+
+[[ -d $owm_confdir ]] || mkdir -p "$owm_confdir"
+[[ -d $owm_cachedir ]] || mkdir -p "$owm_cachedir"
+
+owm_usage () {
+	echo "Usage: owm-functions [-f] [lat lon]"
+	echo " -f force overwrite ignoring cache"
+}
+
+for arg in "$@"; do
+	echo "Processing arg: $arg" >&2
+	if [[ $arg = -f ]]; then
+		owm_force=1
+	elif [[ $arg = -d ]]; then
+		owm_debug=1
+	elif [[ $arg = -h ]]; then
+		owm_help=1
+		owm_run_true=
+		owm_usage
+	elif [[ -z $owm_lat ]]; then
+		owm_lat=$arg
+	elif [[ -z $owm_lon ]]; then
+		owm_lon=$arg
+		owm_cache_forecast_fn="$owm_cachedir/fc-user.json"
+		owm_userreq=1
+		echo
+		echo "${yel} Using user-provided location:${rst} $owm_lat $owm_lon" >&2
+	else
+		echo "Error: Invalid arg ($arg)" >&2
+		owm_usage >&2
+		owm_run_true=
+	fi
+done
+
+if [[ -z $owm_lat ]]; then
+	owm_lat=$(jq '.[0].lat' <<< "$owm_coord_local")
+	owm_lon=$(jq '.[0].lon' <<< "$owm_coord_local")
+fi
+
+if [[ -n $owm_debug ]]; then
+	echo "         owm_force: $owm_force"
+	echo "          owm_help: $owm_help"
+	echo "      owm_run_true: $owm_run_true"
+	echo "           owm_lat: $owm_lat"
+	echo "           owm_lon: $owm_lon"
+	echo "owm_cache_forecast_fn: $owmcache_forecast"
+	echo "       owm_userreq: $owm_userreq"
+	echo
+fi
+
+owm_update () {
+	local json_pretty="${owm_cache_forecast_fn%.json}.pretty.json"
+	local retrieve=
+	if [[ -n $owm_force ]]; then
+		retrieve=1
+	elif find "$owm_cache_forecast_fn" -mmin +"$owm_expiretime" &>/dev/null; then
+		retrieve=1
+	fi
+	if [[ -z $retrieve ]]; then
+		echo "Using cached forecast: $owm_cache_forecast_fn" >&2
+	else
+		echo "Updating local daily forecast" >&2
+		echo "    URL: $owm_url_forecast" >&2
+		echo "    KEY: $owm_key" >&2
+		echo "  Cache: $owm_cache_forecast_fn" >&2
+		echo " Pretty: $json_pretty" >&2
+		echo "   curl: curl -s \"$owm_url_forecast\" > \"$owm_cache_forecast_fn\""
+		curl -s "$owm_url_forecast" > "$owm_cache_forecast_fn"
+		json_pp < "$owm_cache_forecast_fn" > "$json_pretty"
+	fi
+	echo -n ' '; ls -lgG -- "$owm_cache_forecast_fn" >&2
+	printf ' %s\n' "$owm_cache_forecast_fn" >&2
+}
+
+if [[ -n $owm_lat && -z $owm_lon ]]; then
+	echo "Error: Need lat and lon, try -h" >&2
+elif [[ -n $owm_run_true ]]; then
+	owm_url_forecast="https://api.openweathermap.org/data/2.5/forecast?lat=$owm_lat&lon=$owm_lon&appid=$owm_key"
+	owm_update
+fi
+
+

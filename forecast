@@ -1,0 +1,38 @@
+#!/bin/bash
+ourdir="$(dirname "$(readlink -f "$0")")"
+ourname="${ourdir##*/}"
+bin_owm_functions="$ourdir/owm-functions"
+bin_forecast_py="$ourdir/forecast.py"
+
+if [[ $# -eq 0 ]]; then
+	echo "sourcing $bin_owm_functions" >&2
+	. "$bin_owm_functions"
+elif [[ $# -gt 1 ]]; then
+	echo "Too many options. We accept a city to search for." >&2
+	exit 1
+elif [[ $# -eq 1 ]]; then
+	search=$1
+	latlon=$(city-to-coord "$search")
+	cityresult=$?
+	echo "city-to-coord result: $cityresult" >&2
+	# printf 'Lat lon: %s\n' "$latlon" >&2
+	lat=${latlon%% *}
+	lon=${latlon##* }
+	# printf 'Lat: %s\n' "$lat" >&2
+	# printf 'Lon: %s\n' "$lon" >&2
+	if [[ -z $lat || -z $lon ]]; then
+		echo "No coordinates found" >&2
+		exit 1
+	fi
+	echo "Using coordinates: $lat $lon" >&2
+	if [[ $cityresult -eq 0 ]]; then # Not cached, so expire
+		echo "city-to-coord location ($search) not cached." >&2
+		echo "  Expiring owm cache" >&2
+		export owm_expire=1          #  owm's cache as well
+	fi
+	. "$bin_owm_functions" "$lat" "$lon"
+fi
+
+export owm_cache_forecast_fn
+echo "cache: $owm_cache_forecast_fn"
+"$bin_forecast_py" 2>&1 | less
