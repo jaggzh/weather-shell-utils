@@ -15,3 +15,7 @@
 1. **Set default (local) coordinates**: `forecast -l "some city, some state"`: Does an openstreetmap search to obtain coordinates. With -l it stores this as your default.
 1. **Run default**: `forecast`: Gets weather for default (local) coordinates.
 1. **Run specific location**: `forecast "some city, some state"`: Gets weather for chosen city. Uses openstreetmap to find coords.
+
+## Known issues
+* Outputs a bunch of junk to stderr before the weather forecast
+* Other than that it's perfect!
