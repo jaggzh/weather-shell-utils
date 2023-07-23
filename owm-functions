@@ -1,5 +1,9 @@
 #!/bin/bash
-. owm.env
+ourdir="$(dirname "$(readlink -f "$0")")"
+ourname="${ourdir##*/}"
+bin_env="$ourdir/owm.env"
+. "$bin_env"
+
 owm_coord_local_fn="$owm_confdir"/openweathermap-coord-local.txt
 owm_coord_local=$(cat "$owm_confdir"/openweathermap-coord-local.txt)
 owm_key=$(cat "$owm_confdir"/openweathermap-api-key.txt)
