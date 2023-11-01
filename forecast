@@ -3,6 +3,7 @@ ourdir="$(dirname "$(readlink -f "$0")")"
 ourname="${ourdir##*/}"
 bin_owm_functions="$ourdir/owm-functions"
 bin_forecast_py="$ourdir/forecast.py"
+bin_city_to_coord="$ourdir/city-to-coord"
 local=
 verbose=0
 
@@ -44,7 +45,7 @@ if [[ -z $opt_search ]]; then
 	echo "Sourcing $bin_owm_functions" >&2
 	. "$bin_owm_functions"
 else
-	latlon=$(city-to-coord "$opt_search")
+	latlon=$($bin_city_to_coord "$opt_search")
 	cityresult=$?
 	echo "city-to-coord result: $cityresult" >&2
 	# printf 'Lat lon: %s\n' "$latlon" >&2
