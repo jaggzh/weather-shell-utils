@@ -3,14 +3,15 @@ import os, sys
 import json
 import symbols
 from bansi import *
-import ipdb
+
+def pe(*x,**y): print(*x,**y, file=sys.stderr)
 
 var_cache_fn='owm_cache_forecast_fn'
 if var_cache_fn not in os.environ:
-	print(f"Missing cache json file VARIABLE '{var_cache_fn}'")
+	pe(f"Missing cache json file VARIABLE '{var_cache_fn}'")
 	sys.exit(1)
 fn_json=os.environ[var_cache_fn]
-print(f"Using json: {fn_json}")
+pe(f"Using json: {fn_json}")
 
 def k2f(kstr):
 	kelvin = float(kstr)

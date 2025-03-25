@@ -78,4 +78,4 @@ fi
 export owm_cache_forecast_fn
 echo "cache: $owm_cache_forecast_fn" >&2
 [[ $verbose -gt 0 ]] && sleep 1
-"$bin_forecast_py" 2>&1 | less
+"$bin_forecast_py" | less

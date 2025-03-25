@@ -85,7 +85,7 @@ owm_update () {
 		echo "    KEY: $owm_key" >&2
 		echo "  Cache: $owm_cache_forecast_fn" >&2
 		echo " Pretty: $json_pretty" >&2
-		echo "   curl: curl -s \"$owm_url_forecast\" > \"$owm_cache_forecast_fn\""
+		echo "   curl: curl -s \"$owm_url_forecast\" > \"$owm_cache_forecast_fn\"" >&2
 		curl -s "$owm_url_forecast" > "$owm_cache_forecast_fn"
 		json_pp < "$owm_cache_forecast_fn" > "$json_pretty"
 	fi
