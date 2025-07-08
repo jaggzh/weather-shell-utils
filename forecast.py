@@ -3,14 +3,25 @@ import os, sys
 import json
 import symbols
 from bansi import *
-import ipdb
+
+verbose=0
+def pel(l,*x,**y):
+    if verbose>=l: print(*x,*y, file=sys.stderr)
+
+color=True
+if '-C' in sys.argv:
+    color=False
+    uncolor()
+    from bansi import *
+    # print(f"{bred}bred{rst}")
+    # sys.exit()
 
 var_cache_fn='owm_cache_forecast_fn'
 if var_cache_fn not in os.environ:
-	print(f"Missing cache json file VARIABLE '{var_cache_fn}'")
+	pe(f"Missing cache json file VARIABLE '{var_cache_fn}'")
 	sys.exit(1)
 fn_json=os.environ[var_cache_fn]
-print(f"Using json: {fn_json}")
+pel(1, f"Using json: {fn_json}")
 
 def k2f(kstr):
 	kelvin = float(kstr)
@@ -21,7 +32,6 @@ def k2c(kstr):
 	kelvin = float(kstr)
 	celsius = (kelvin - 273.15)
 	return celsius
-
 
 # print(fn_json)
 with open(fn_json,'rt') as F:
@@ -41,20 +51,20 @@ for di in daydata:
 	tempkmin = k2f(di['main']['temp_min'])
 	tempkmax = k2f(di['main']['temp_max'])
 	temp_glyph, temp_color = symbols.temp_f_sym(tempf)
-	temp_color = a24fg(*temp_color)
+	temp_color = a24fg(*temp_color) if color else ''
 	if wident not in symbols.sym_weather:
 		glyph='?'
 		gwidth=2
-		fg=a24fg(255,255,255)
+		fg=a24fg(255,255,255) if color else ''
 	else:
 		sym = symbols.sym_weather[wident]['day']
 		glyph, gwidth = symbols.get_glyph(sym)
 		argb = sym['clr_argb']
-		fg=a24fg(argb[0], argb[1], argb[2])
-	bg=a24bg(0,0,154)
+		fg=a24fg(argb[0], argb[1], argb[2]) if color else ''
+	bg=a24bg(0,0,154) if color else ''
 
 	date,time,daycolor = symbols.date_to_str_color(datetime, tz)
-	daycolor = a24bg(*daycolor)
+	daycolor = a24bg(*daycolor) if color else ''
 	
 	#print(f"{datestr} {gwidth} {temp_color}{temp_glyph}{rst} {tempf:.2f}°f {bg}{fg} {glyph:{gwidth}}{rst} [{wcmt:8}] {wident}")
 	print(f"{date} {daycolor}{time}{rst} {temp_color}{temp_glyph}{rst} {tempf:5.1f}°f {bg}{fg} {glyph:{gwidth}}{rst} [{wcmt:8}] {wident}")

@@ -20,6 +20,8 @@ owm_usage () {
 for arg in "$@"; do
 	if [[ $arg = -l ]]; then
 		local=1
+	elif [[ $arg = -C ]]; then
+		opts_color=("-C")
 	elif [[ $arg = -h ]]; then
 		owm_usage
 		exit
@@ -69,5 +71,5 @@ else
 fi
 
 export owm_cache_forecast_fn
-echo "cache: $owm_cache_forecast_fn"
-"$bin_forecast_py" 2>&1 | less
+echo "cache: $owm_cache_forecast_fn" >&2
+"$bin_forecast_py" "${opts_color[@]}" | less
