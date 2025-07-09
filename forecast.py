@@ -40,12 +40,15 @@ daydata = alldata['list']
 cityname = alldata['city']['name']
 tz = alldata['city']['timezone']
 print(f"{bgblu}                 {gra}==== {whi}{cityname} {rst}{bgblu}{gra}====                 {rst}")
+print(f"Date       Time  Hum T  Temp°f")
 for di in daydata:
 	datetime = di['dt']
 	datestr = di['dt_txt']
 	weather=di['weather'][0]
 	wident = weather['description']
 	wcmt = weather['main']
+	hum = f"{di['main']['humidity']:3d}"
+	hum_color = a24fg(255,255,255)
 	tempk = di['main']['temp']
 	tempf = k2f(tempk)
 	tempkmin = k2f(di['main']['temp_min'])
@@ -67,4 +70,4 @@ for di in daydata:
 	daycolor = a24bg(*daycolor) if color else ''
 	
 	#print(f"{datestr} {gwidth} {temp_color}{temp_glyph}{rst} {tempf:.2f}°f {bg}{fg} {glyph:{gwidth}}{rst} [{wcmt:8}] {wident}")
-	print(f"{date} {daycolor}{time}{rst} {temp_color}{temp_glyph}{rst} {tempf:5.1f}°f {bg}{fg} {glyph:{gwidth}}{rst} [{wcmt:8}] {wident}")
+	print(f"{date} {daycolor}{time}{rst} {hum_color}{hum}{rst} {temp_color}{temp_glyph}{rst} {tempf:5.1f}°f {bg}{fg} {glyph:{gwidth}}{rst} [{wcmt:8}] {wident}")

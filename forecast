@@ -5,16 +5,21 @@ bin_owm_functions="$ourdir/owm-functions"
 bin_forecast_py="$ourdir/forecast.py"
 bin_city_to_coord="$ourdir/city-to-coord"
 local=
+verbose=0
 
 owm_usage () {
-	echo "Weather forecast using openweathermap api"
-	echo "(And OpenStreetMap if you look up a city -> coords)"
-	echo
-	echo "Usage: forecast [-l] [location_search]"
-	echo " -l  The location search will be done, and stored"
-	echo "     as your default coordinates."
-	echo "     Once stored, forecast can be run without coords and"
-	echo "     will use that as the default location."
+	cat <<EOT
+Weather forecast using openweathermap api
+(And OpenStreetMap if you look up a city -> coords)
+
+Usage: forecast [opts] [location_search]
+ -l  The location search will be done, and stored
+     as your default coordinates.
+     Once stored, forecast can be run without coords and
+     will use that as the default location.
+ -v  Increase verbosity
+ -h  This help, and a fortune.
+EOT
 }
 
 for arg in "$@"; do
@@ -25,6 +30,8 @@ for arg in "$@"; do
 	elif [[ $arg = -h ]]; then
 		owm_usage
 		exit
+	elif [[ $arg = -v ]]; then
+		verbose=$((verbose+1))
 	elif [[ -n $opt_search ]]; then
 		echo "Too many options. We accept a city to search for. See -h" >&2
 		exit 1
@@ -72,4 +79,5 @@ fi
 
 export owm_cache_forecast_fn
 echo "cache: $owm_cache_forecast_fn" >&2
+[[ $verbose -gt 0 ]] && sleep 1
 "$bin_forecast_py" "${opts_color[@]}" | less
