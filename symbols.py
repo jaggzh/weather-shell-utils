@@ -320,7 +320,7 @@ def date_to_str_color(unixtime_utc, timezone_offset_seconds):
 	# Define the RGB color values for midnight, morning, noon, and evening
 	midnight_color = (0, 0, 0)	# black
 	morning_color = (0, 0, 255)  # blue
-	noon_color = (0, 255, 255)	# cyan
+	noon_color = (0, 205, 235)	# cyan
 	evening_color = (255, 165, 0)  # orange
 
 	# Calculate the time of day as a percentage of 24 hours

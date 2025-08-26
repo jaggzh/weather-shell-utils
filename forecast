@@ -43,7 +43,8 @@ done
 # $ cat openweathermap-coord-local.txt
 # [{"name":"Somewhere","lat":34.595,"lon":-118.47,"country":"US","state":"California"}]
 
-if [[ -z $opt_search ]]; then
+# If not doing a city search, don't source these owm functions
+if [[ -z "$opt_search" ]]; then
 	echo "Sourcing $bin_owm_functions" >&2
 	. "$bin_owm_functions"
 else
@@ -78,6 +79,6 @@ else
 fi
 
 export owm_cache_forecast_fn
-echo "cache: $owm_cache_forecast_fn" >&2
+echo "cache: ''$owm_cache_forecast_fn''" >&2
 [[ $verbose -gt 0 ]] && sleep 1
 "$bin_forecast_py" "${opts_color[@]}" | less

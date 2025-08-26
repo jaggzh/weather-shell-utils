@@ -1,7 +1,25 @@
 #!/bin/bash
 ourdir="$(dirname "$(readlink -f "$0")")"
 ourname="${ourdir##*/}"
-bin_env="$ourdir/owm.env"
+env_locs=(
+	"$ourdir"/owm.env
+	~/.config/owm/owm.env
+)
+# Simple check if env vars are probably set. If not, look for owm.env file
+if [[ -z "$owm_confdir" ]]; then
+	bin_env=
+	for bin_env in "${env_locs[@]}"; do
+		[[ -f "$bin_env" ]] && break
+	done
+	if [[ -z "$bin_env" || ! -f "$bin_env" ]]; then
+		echo "Couldn't find env var 'owm_confdir', and couldn't find owm.env file." >&2
+		echo "  Looked at:" >&2
+		for el in "${env_locs[@]}"; do
+			echo "    $el" >&2
+		done
+		exit 1
+	fi
+fi
 . "$bin_env"
 
 owm_coord_local_fn="$owm_confdir"/openweathermap-coord-local.txt
