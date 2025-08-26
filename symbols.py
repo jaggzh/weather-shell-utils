@@ -2,6 +2,8 @@
 from bansi import *
 from wcwidth import wcwidth
 from datetime import datetime, time, timedelta, timezone
+import colorsys
+import bisect
 
 sym_weather = {
 	# Main: 800 Clear
@@ -309,39 +311,172 @@ def temp_f_sym(temp_f):
 	# If temperature is above the defined range, return the maximum values
 	return "█", (255, 0, 0)
 
+# ---- Color Helpers ---------------------------------------------------------
+
+def _lerp(a, b, t):
+    return a + (b - a) * t
+
+def _smoothstep(t):
+    t = max(0.0, min(1.0, t))
+    return t * t * (3.0 - 2.0 * t)
+
+def _hsv_to_rgb255(h, s, v):
+    r, g, b = colorsys.hsv_to_rgb((h % 360.0) / 360.0, max(0.0, min(1.0, s)), max(0.0, min(1.0, v)))
+    return (int(round(r * 255)), int(round(g * 255)), int(round(b * 255)))
+
+def _lerp_hue_long_arc(h1, h2, t):
+    """Interpolate hue h1->h2 taking the long way (via red) to avoid green.
+    Returns hue in [0,360).
+    """
+    h1 %= 360.0
+    h2 %= 360.0
+    if h2 < h1:
+        h2 += 360.0
+    # If crossing green (~120°), force wrap forward one more turn to go via red
+    if h1 <= 120.0 <= h2:
+        h2 += 360.0
+    return (h1 + (h2 - h1) * t) % 360.0
+
+def _lerp_hue_short_arc(h1, h2, t):
+    """Shortest-arc hue interpolation. May pass near green depending on endpoints."""
+    h1 %= 360.0
+    h2 %= 360.0
+    d = (h2 - h1 + 540.0) % 360.0 - 180.0
+    return (h1 + d * t) % 360.0
+
+# ---- HSVFader --------------------------------------------------------------
+
+class HSVFader:
+    """
+    Keyframed HSV timeline on t ∈ [0,1) with per-segment options.
+
+    Usage:
+        f = HSVFader().set0(t=0.0, h=210, s=0.65, v=0.12)
+        f.add_point(t=0.1875, v=0.20)                                    # ~04:30 early pre-dawn
+        f.add_point(t=0.29, hsv=(210, 0.55, 0.80), smoothstep=True)      # morning blue
+        f.add_point(t=0.5,  hsv=(210, 0.45, 0.92))                       # noon, dark-cyan blue
+        f.add_point(t=17/24, hsv=(30, 0.95, 1.00), smoothstep=True, avoidgreen=True)  # 17:00 sunset
+        f.add_point(t=21/24, hsv=(30, 0.75, 0.60))                        # dusk
+        f.add_point(t=1.0,  hsv=(210, 0.65, 0.12))                        # wrap to midnight
+        rgb = f.rgb_at(0.71)  # sample at some t
+    """
+    def __init__(self):
+        # Each point: {t, h, s, v, smoothstep (bool), avoidgreen (bool)}
+        self.points = []
+
+    def set0(self, t=0.0, h=None, s=None, v=None, hsv=None, smoothstep=True, avoidgreen=False):
+        self.points = []
+        return self.add_point(t=t, h=h, s=s, v=v, hsv=hsv, smoothstep=smoothstep, avoidgreen=avoidgreen)
+
+    def add_point(self, t, h=None, s=None, v=None, hsv=None, smoothstep=True, avoidgreen=False):
+        t = float(t) % 1.0
+        if hsv is not None:
+            if isinstance(hsv, (tuple, list)) and len(hsv) == 3:
+                h, s, v = hsv
+            elif isinstance(hsv, dict):
+                h = hsv.get('h', h)
+                s = hsv.get('s', s)
+                v = hsv.get('v', v)
+        pt = {'t': t, 'h': h, 's': s, 'v': v, 'smoothstep': bool(smoothstep), 'avoidgreen': bool(avoidgreen)}
+        # insert in sorted order by t; replace if same t
+        ts = [p['t'] for p in self.points]
+        i = bisect.bisect_right(ts, t)
+        if i > 0 and abs(ts[i-1] - t) < 1e-9:
+            self.points[i-1] = pt
+        else:
+            self.points.insert(i, pt)
+        return self
+
+    # internal: fetch bracketing points with wrap support
+    def _segment_for(self, t):
+        if not self.points:
+            raise ValueError("No keyframes in HSVFader")
+        t = float(t) % 1.0
+        ts = [p['t'] for p in self.points]
+        i = bisect.bisect_right(ts, t)
+        i0 = (i - 1) if i > 0 else len(self.points) - 1
+        i1 = i % len(self.points)
+        p0 = self.points[i0]
+        p1 = self.points[i1]
+        t0 = p0['t']
+        t1 = p1['t'] if p1['t'] > t0 else p1['t'] + 1.0
+        u = 0.0 if t1 == t0 else ((t - t0) % 1.0) / (t1 - t0)
+        return p0, p1, u
+
+    def hsv_at(self, t):
+        p0, p1, u = self._segment_for(t)
+        # carry-forward unspecified channels
+        def carry(name):
+            a = p0[name]
+            b = p1[name] if p1[name] is not None else a
+            return a, b
+        h0, h1 = carry('h')
+        s0, s1 = carry('s')
+        v0, v1 = carry('v')
+        # easing
+        if p1.get('smoothstep', False):
+            u_e = _smoothstep(u)
+        else:
+            u_e = u
+        # hue interpolation
+        if h0 is None and h1 is None:
+            h = 0.0
+        elif h0 is None:
+            h = float(h1)
+        elif h1 is None:
+            h = float(h0)
+        else:
+            if p1.get('avoidgreen', False):
+                h = _lerp_hue_long_arc(float(h0), float(h1), u_e)
+            else:
+                h = _lerp_hue_short_arc(float(h0), float(h1), u_e)
+        # s, v
+        s = _lerp(float(s0 if s0 is not None else 0.0), float(s1 if s1 is not None else s0), u_e)
+        v = _lerp(float(v0 if v0 is not None else 0.0), float(v1 if v1 is not None else v0), u_e)
+        # clamp s,v
+        s = max(0.0, min(1.0, s))
+        v = max(0.0, min(1.0, v))
+        return (h, s, v)
+
+    def rgb_at(self, t):
+        return _hsv_to_rgb255(*self.hsv_at(t))
+
+# ---- Example: date_to_str_color using HSVFader -----------------------------
+
+H_BLUE   = 210.0
+H_ORANGE =  30.0
+H_RED    =   4.0
+
+# You can adjust these once and keep date_to_str_color tiny.
+_fader = (
+    HSVFader()
+      .set0(     t=0.0,      h=H_BLUE,  s=0.65, v=0.12)    # midnight plateau (readable, not black)
+      .add_point(t=4.5/24,                      v=0.20)    # ~04:30 slightly brighter pre-dawn
+      .add_point(t=  6/24, hsv=(H_RED,    0.75,   0.52), avoidgreen=True) 
+      .add_point(t=  7/24, hsv=(H_ORANGE, 0.75,   0.60))
+      .add_point(t=  8/24, hsv=(H_BLUE,   0.55,   0.50))
+      .add_point(t= 10/24, hsv=(H_BLUE,   0.55,   0.80))
+      .add_point(t= 12/24, hsv=(H_BLUE,   0.45,   0.92))   # noon: dark-cyan blue
+      .add_point(t= 15/24, hsv=(H_BLUE,   0.45,   0.70))   # 3pm
+      .add_point(t= 18/24, hsv=(H_BLUE,   0.45,   0.50))   # 6pm
+      .add_point(t= 19/24, hsv=(H_ORANGE, 0.75,   0.60), avoidgreen=True)    # 21:00 dusk
+      .add_point(t= 20/24, hsv=(H_RED,    0.75,   0.52), avoidgreen=True) 
+      .add_point(t= 21/24, hsv=(H_BLUE,   0.65,   0.18), avoidgreen=True)
+      .add_point(t= 24/24, hsv=(H_BLUE,   0.65,   0.12))    # wrap back to midnight
+)
+
 def date_to_str_color(unixtime_utc, timezone_offset_seconds):
-	# Timezone object for conversion:
-	tz = timezone(timedelta(seconds=timezone_offset_seconds))
-	date = datetime.fromtimestamp(unixtime_utc, tz)
-	# Get the datetime components
-	year, month, day = date.year, date.month, date.day
-	hour, minute = date.hour, date.minute
+    tz = timezone(timedelta(seconds=timezone_offset_seconds))
+    date = datetime.fromtimestamp(unixtime_utc, tz)
+    year, month, day = date.year, date.month, date.day
+    hour, minute = date.hour, date.minute
 
-	# Define the RGB color values for midnight, morning, noon, and evening
-	midnight_color = (0, 0, 0)	# black
-	morning_color = (0, 0, 255)  # blue
-	noon_color = (0, 205, 235)	# cyan
-	evening_color = (255, 165, 0)  # orange
+    # Fraction of the day in [0,1)
+    t = ((hour * 60) + minute) / (24.0 * 60.0)
 
-	# Calculate the time of day as a percentage of 24 hours
-	time_percent = ((hour * 60) + minute) / (24 * 60)
-
-	# Interpolate the RGB values based on the time of day
-	if time_percent < 0.25:  # Morning (0.00-0.25)
-		weight = time_percent / 0.25
-		color = tuple(int((morning_color[i] - midnight_color[i]) * weight + midnight_color[i]) for i in range(3))
-	elif time_percent < 0.5:  # Noon (0.25-0.50)
-		weight = (time_percent - 0.25) / 0.25
-		color = tuple(int((noon_color[i] - morning_color[i]) * weight + morning_color[i]) for i in range(3))
-	elif time_percent < 0.75:  # Evening (0.50-0.75)
-		weight = (time_percent - 0.5) / 0.25
-		color = tuple(int((evening_color[i] - noon_color[i]) * weight + noon_color[i]) for i in range(3))
-	else:  # Midnight (0.75-1.00)
-		weight = (time_percent - 0.75) / 0.25
-		color = tuple(int((midnight_color[i] - evening_color[i]) * weight + evening_color[i]) for i in range(3))
-
+    color = _fader.rgb_at(t)
+    return f"{year}-{month:02d}-{day:02d}", f"{hour:02d}:{minute:02d}", color
 	# Return the date, time, and color
-	return f'{year}-{month:02d}-{day:02d}', f'{hour:02d}:{minute:02d}', color
 
 def show_syms_weather():
 	for s in sym_weather:
@@ -365,13 +500,22 @@ def sym_temp_str(glyph, color):
 def print_sym_temp(glyph, color):
 	print(sym_temp_str(glyph, color))
 
+# ▁        9601     2581     Lower one eighth block
+# ▂        9602     2582     Lower one quarter block
+# ▃        9603     2583     Lower three eighths block
+# ▄        9604     2584     Lower half block
+# ▅        9605     2585     Lower five eighths block
+# ▆        9606     2586     Lower three quarters block
+# ▇        9607     2587     Lower seven eighths block
+# █        9608     2588     Full block
+
 def show_syms_temperature():
 	print_sym_temp(*temp_f_sym(-100))	# ('▁', (255, 255, 255))
 	print_sym_temp(*temp_f_sym(32))	# ('▁', (255, 255, 255))
 	print_sym_temp(*temp_f_sym(45))	# ('▁', (255, 204, 0))
-	print_sym_temp(*temp_f_sym(60))	# ('▁', (255, 204, 0))
+	print_sym_temp(*temp_f_sym(60))	# ('▃', (255, 204, 0))
 	print_sym_temp(*temp_f_sym(77))	# ('▄', (255, 255, 0))
-	print_sym_temp(*temp_f_sym(81))	# ('▆', (255, 128, 0))
+	print_sym_temp(*temp_f_sym(79))	# ('▅', (255, 128, 0))
 	print_sym_temp(*temp_f_sym(95))	# ('▇', (255, 50, 0))
 	print_sym_temp(*temp_f_sym(108))	# ('█', (255, 0, 0))
 	print_sym_temp(*temp_f_sym(120))	# ('█', (255, 0, 0))
