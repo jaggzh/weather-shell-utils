@@ -5,6 +5,8 @@ import symbols
 from bansi import *
 
 verbose=0
+def pe(*x,**y):
+    print(*x,**y, file=sys.stderr)
 def pel(l,*x,**y):
     if verbose>=l: print(*x,*y, file=sys.stderr)
 
@@ -12,7 +14,7 @@ color=True
 if '-C' in sys.argv:
     color=False
     uncolor()
-    from bansi import *
+    # from bansi import *
     # print(f"{bred}bred{rst}")
     # sys.exit()
 
@@ -70,4 +72,4 @@ for di in daydata:
 	daycolor = a24bg(*daycolor) if color else ''
 	
 	#print(f"{datestr} {gwidth} {temp_color}{temp_glyph}{rst} {tempf:.2f}°f {bg}{fg} {glyph:{gwidth}}{rst} [{wcmt:8}] {wident}")
-	print(f"{date} {daycolor}{time}{rst} {hum_color}{hum}{rst} {temp_color}{temp_glyph}{rst} {tempf:5.1f}°f {bg}{fg} {glyph:{gwidth}}{rst} [{wcmt:8}] {wident}")
+	print(f"{date} {daycolor}{time}{rst} {hum_color}{hum}{rst} {temp_color}{temp_glyph} {tempf:5.1f}°f{rst} {bg}{fg} {glyph:{gwidth}}{rst} [{wcmt:8}] {wident}")
