@@ -232,6 +232,7 @@ for t_utc in sorted(hourly.keys()):
 	tempf = vals['temp_f']
 	hum   = int(round(vals['humidity']))
 	temp_glyph, temp_rgb = symbols.temp_f_sym(tempf)
+	if not color: rst=''
 	temp_color = a24fg(*temp_rgb) if color else ''
 	hum_color  = a24fg(255,255,255) if color else ''
 	glyph, gwidth, w_rgb, desc, main = nearest_weather(t_utc)

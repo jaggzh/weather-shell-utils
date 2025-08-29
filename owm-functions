@@ -42,39 +42,54 @@ owm_debug=
 owm_usage () {
 	echo "Usage: owm-functions [-f] [lat lon]"
 	echo " -f force overwrite ignoring cache"
+	echo " -h this help"
+	echo " -lat #.#  specify latitude"
+	echo " -lon #.#  specify longitude"
+	echo " -d        enable debug output"
+	echo 
 }
 
-for arg in "$@"; do
+user_loc=0
+arg=$1
+while shift; do
 	# echo "Processing arg: $arg" >&2
-	if [[ $arg = -f ]]; then
+	if [[ "$arg" = -f ]]; then
 		owm_force=1
-	elif [[ $arg = -d ]]; then
+	elif [[ "$arg" = -d ]]; then
 		owm_debug=1
-	elif [[ $arg = -h ]]; then
+	elif [[ "$arg" = -h ]]; then
 		owm_help=1
 		owm_run_true=
 		owm_usage
-	elif [[ -z $owm_lat ]]; then
-		owm_lat=$arg
-	elif [[ -z $owm_lon ]]; then
-		owm_lon=$arg
-		owm_cache_forecast_fn="$owm_cachedir/fc-user.json"
-		owm_userreq=1
-		echo
-		echo "${yel} Using user-provided location:${rst} $owm_lat $owm_lon" >&2
+	elif [[ "$arg" = -lat ]]; then
+		user_loc=1
+		owm_lat=$1
+		shift
+	elif [[ "$arg" = -lon ]]; then
+		user_loc=1
+		owm_lon=$1
+		shift
 	else
-		echo "Error: Invalid arg ($arg)" >&2
-		owm_usage >&2
-		owm_run_true=
+		echo "Warning: owm-functions: Ignoring invalid arg ($arg)" >&2
 	fi
 done
+if [[ "$user_loc" = 1 ]]; then # User specified -lat / -lon
+	if [[ -z "$owm_lat" || -z "$owm_lon" ]]; then
+		echo "User specified only one of -lat ($owm_lat) or -lon ($owm_lon)" >&2
+		exit
+	fi
+	owm_cache_forecast_fn="$owm_cachedir/fc-user.json"
+	owm_userreq=1
+	echo
+	echo "${yel} Using user-provided location:${rst} $owm_lat $owm_lon" >&2
+fi
 
-if [[ -z $owm_lat ]]; then
+if [[ -z "$owm_lat" ]]; then
 	owm_lat=$(jq '.[0].lat' <<< "$owm_coord_local")
 	owm_lon=$(jq '.[0].lon' <<< "$owm_coord_local")
 fi
 
-if [[ -n $owm_debug ]]; then
+if [[ -n "$owm_debug" ]]; then
 	echo "         owm_force: $owm_force"
 	echo "          owm_help: $owm_help"
 	echo "      owm_run_true: $owm_run_true"
@@ -111,7 +126,8 @@ owm_update () {
 	printf ' %s\n' "$owm_cache_forecast_fn" >&2
 }
 
-if [[ -n $owm_lat && -z $owm_lon ]]; then
+# choq "lat $owm_lat, lon $owm_lon"
+if [[ -n "$owm_lat" && -z "$owm_lon" ]]; then
 	echo "Error: Need lat and lon, try -h" >&2
 elif [[ -n $owm_run_true ]]; then
 	owm_url_forecast="https://api.openweathermap.org/data/2.5/forecast?lat=$owm_lat&lon=$owm_lon&appid=$owm_key"
