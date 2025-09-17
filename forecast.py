@@ -107,7 +107,9 @@ def _fritsch_carlson_slopes(x, y):
     return m, d
 
 def build_monotone_spline(x, y):
-    """Return a callable s(t) for t in [x0, xN] with no overshoot and flat peaks."""
+    """ Return a callable s(t) for t in [x0, xN] with no overshoot and flat peaks."""
+    """  A "shape-preserving monotone cubic Hermite spline" -- specifically
+    """  "the Fritsch–Carlson (a.k.a. PCHIP-style) or Steffen method."
     if len(x) != len(y) or len(x) < 2:
         raise ValueError("Need >= 2 points")
     # Ensure strictly increasing x
