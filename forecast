@@ -81,4 +81,5 @@ fi
 export owm_cache_forecast_fn
 echo "cache: ''$owm_cache_forecast_fn''" >&2
 [[ $verbose -gt 0 ]] && sleep 1
-"$bin_forecast_py" "${opts_color[@]}" | less
+pager=$(which bat || which less || which cat)
+"$bin_forecast_py" "${opts_color[@]}" | "$pager"

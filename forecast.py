@@ -240,6 +240,7 @@ for t_utc in sorted(hourly.keys()):
 	glyph, gwidth, w_rgb, desc, main = nearest_weather(t_utc)
 	fg = a24fg(*w_rgb) if color else ''
 	bg = a24bg(*bg_rgb) if color else ''
-	print(f"{date} {bg}{time}{rst} {hum_color}{hum:3d}{rst} "
+	time_fg = a24fg(225,200,0) if color else ''
+	print(f"{fg}{date} {bg}{time_fg}{time}{rst}{fg} {hum_color}{hum:3d}{rst} "
 		f"{temp_color}{temp_glyph} {tempf:5.1f}°f{rst} "
 		f"{fg}{glyph:{gwidth}}{rst} [{main:8}] {desc}")
