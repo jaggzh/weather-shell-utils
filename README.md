@@ -1,6 +1,9 @@
 ## Weather shell utils
 
-![Screenshot](i/screenshot.png "Screenshot")
+<div align="center">
+  <em>Nearing Summer in Paris...</em><br>
+  <img src="i/screenshot.png" alt="Screenshot of terminal"><br>
+</div>
 
 ## Installation
 1. Clone me!
